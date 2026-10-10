@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: FlowProof deterministic comparison and experiment receipts
+Parameters:
+  FrontendOrigin:
+    Type: String
+    Default: ''
+    Description: Exact origin of the deployed frontend, e.g. https://example.amplifyapp.com
+Resources:
+  FlowProofApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 5
+  ReceiptsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: receiptId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: receiptId
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+  CompareFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: src/lambda.handler
+      Runtime: nodejs22.x
+      MemorySize: 128
+      Timeout: 10
+      Environment:
+        Variables:
+          RECEIPTS_TABLE: !Ref ReceiptsTable
+          ALLOWED_ORIGINS: !Ref FrontendOrigin
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ReceiptsTable
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowProofApi
+            Path: /
+            Method: GET
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref FlowProofApi
+            Path: /{proxy+}
+            Method: ANY
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${FlowProofApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+  TableName:
+    Value: !Ref ReceiptsTable

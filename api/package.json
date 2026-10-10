@@ -1,0 +1,10 @@
+{
+  "name": "flowproof-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "files": ["src/", "public/"],
+  "scripts": {"dev": "node --watch src/server.js", "start": "node src/server.js", "test": "node --test", "prepare:web": "node src/prepare-web.js"},
+  "engines": {"node": ">=22"},
+  "dependencies": {"@aws-sdk/client-dynamodb": "^3.922.0", "@aws-sdk/lib-dynamodb": "^3.922.0"}
+}

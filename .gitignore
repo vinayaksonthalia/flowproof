@@ -1,0 +1,8 @@
+node_modules/
+.aws-sam/
+web/dist/
+api/public/
+.DS_Store
+.env
+.env.*
+*.zip

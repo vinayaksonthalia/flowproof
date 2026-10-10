@@ -1,6 +1,6 @@
 # FlowProof
 
-FlowProof helps someone compare the **total water used to complete the same task** before and after changing one habit. A fixed-volume control shows that filling the same container more slowly changes time, not litres. The result is a short-lived, shareable receipt with raw entries, comparison checks, and limitations.
+FlowProof helps someone compare the **total water used to complete the same task** before and after changing one habit. It guides each trial with a timer and a marked-vessel fill tally, calculates the total litres, and offers direct entry when the total was measured elsewhere. A fixed-volume control shows that filling the same container more slowly changes time, not litres. The result is a short-lived, shareable receipt with raw entries, capture method, comparison checks, and limitations.
 
 This is a self-reported experiment, not an automatic meter or proof of long-term savings. An accepted comparison requires the same declared task size and finish line, completed trials, and no reported water loss outside collection. If the changed habit uses more water, the signed negative result remains visible.
 
@@ -37,7 +37,7 @@ The AWS version serves the built frontend and JSON API from one HTTPS origin thr
 
 - The primary number is `baseline total litres − changed-habit total litres`, rounded to 0.1 L for display; raw entries remain on the receipt.
 - A comparison is rejected when required completion or item counts do not match, or when a trial reports spillage. A mismatched fixed-volume target is marked uncertain.
+- A vessel tally records full fills plus the last partial fill. The API checks that this arithmetic matches the submitted total; the vessel markings and entries are still self-reported.
 - The fixed-volume control should report 0 L when both readings equal the same declared fill target, regardless of duration.
 - Receipts are readable by anyone with their unguessable link and expire after seven days. Do not enter personal details.
 - The app does not calculate daily, yearly, financial, or household-wide savings from one pair of trials.
-

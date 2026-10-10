@@ -20,6 +20,27 @@ test('fixed-output negative control returns zero despite different durations', (
   assert.equal(output.status, 'accepted');
   assert.equal(output.observedDifferenceLitres, 0);
 });
+
+test('zero vessel tally cannot support a positive measured volume within rounding tolerance', () => {
+  const input = experiment();
+  input.baseline.litres = 0.004;
+  input.baseline.capture = {method: 'vessel_tally', fullVessels: 0, remainderLitres: 0};
+  const comparison = compareExperiment(input);
+  assert.equal(comparison.status, 'rejected');
+  assert.ok(comparison.reasons.some(reason => reason.includes('vessel tally')));
+});
+
+test('receipt keeps valid timer provenance and rejects invented duration sources', async () => {
+  const input = experiment();
+  input.baseline.durationSource = 'timer';
+  input.intervention.durationSource = 'manual';
+  const response = await route('POST', '/api/compare', input);
+  const saved = await route('GET', `/api/receipts/${response.body.receiptId}`);
+  assert.equal(saved.body.experiment.baseline.durationSource, 'timer');
+  assert.equal(saved.body.experiment.intervention.durationSource, 'manual');
+  input.intervention.durationSource = 'imagined';
+  assert.equal(compareExperiment(input).status, 'rejected');
+});
 test('results use 0.1 L display precision and explain tiny differences', () => {
   const input = experiment(); input.baseline.litres = 4.23456;
   assert.equal(compareExperiment(input).observedDifferenceLitres, 2.4);
@@ -95,6 +116,46 @@ test('receipt strips private extra fields at every request level', async () => {
   const saved = await route('GET', `/api/receipts/${response.body.receiptId}`);
   assert.equal(JSON.stringify(saved.body).includes('secret'), false);
   assert.deepEqual(saved.body.experiment, experiment());
+});
+test('vessel tally accepts measured arithmetic, zero fills/remainder and keeps negative result', () => {
+  const input = experiment();
+  input.baseline.capture = {method: 'vessel_tally', fullVessels: 4, remainderLitres: 0.2};
+  input.intervention.capture = {method: 'vessel_tally', fullVessels: 1, remainderLitres: 0.8};
+  assert.equal(compareExperiment(input).observedDifferenceLitres, 2.4);
+  input.baseline.litres = 0.2;
+  input.baseline.capture.fullVessels = 0;
+  input.intervention.litres = 2;
+  input.intervention.capture = {method: 'vessel_tally', fullVessels: 2, remainderLitres: 0};
+  assert.equal(compareExperiment(input).observedDifferenceLitres, -1.8);
+  assert.equal(compareExperiment(input).status, 'accepted');
+});
+test('tampered totals reject; tally serialization tolerance permits 0.005 L', () => {
+  const input = experiment();
+  input.baseline.capture = {method: 'vessel_tally', fullVessels: 4, remainderLitres: 0.2};
+  input.baseline.litres = 4.205;
+  assert.equal(compareExperiment(input).status, 'accepted');
+  input.baseline.litres = 4.206;
+  assert.equal(compareExperiment(input).status, 'rejected');
+  input.baseline.litres = 4.1;
+  assert.equal(compareExperiment(input).observedDifferenceLitres, null);
+});
+test('malformed tally fields and capture methods reject', () => {
+  for (const capture of [null, [], 'manual', {}, {method: 'camera'}, ...[-1, 1.2, '4', NaN, Infinity, Number.MAX_SAFE_INTEGER + 1, undefined].map(fullVessels => ({method: 'vessel_tally', fullVessels, remainderLitres: 0.2})), ...[-0.1, 1, '0.2', NaN, Infinity, undefined].map(remainderLitres => ({method: 'vessel_tally', fullVessels: 4, remainderLitres}))]) {
+    const input = experiment(); input.baseline.capture = capture;
+    assert.equal(compareExperiment(input).status, 'rejected', JSON.stringify(capture));
+  }
+});
+test('explicit manual and omitted legacy capture work; capture receipt is whitelisted', async () => {
+  assert.equal(compareExperiment(experiment()).status, 'accepted');
+  const input = experiment();
+  input.baseline.capture = {method: 'vessel_tally', fullVessels: 4, remainderLitres: 0.2, privateEmail: 'secret'};
+  input.intervention.capture = {method: 'manual', fullVessels: 'ignored', privateAddress: 'secret'};
+  const response = await route('POST', '/api/compare', input);
+  const saved = await route('GET', `/api/receipts/${response.body.receiptId}`);
+  assert.deepEqual(saved.body.experiment.baseline.capture, {method: 'vessel_tally', fullVessels: 4, remainderLitres: 0.2});
+  assert.deepEqual(saved.body.experiment.intervention.capture, {method: 'manual'});
+  assert.equal(JSON.stringify(saved.body).includes('secret'), false);
+  assert.ok(saved.body.expiresAt > Math.floor(Date.now() / 1000));
 });
 test('Lambda handles API Gateway JSON, invalid JSON and oversized bodies', async () => {
   const event = {requestContext: {http: {method: 'POST'}}, headers: {'content-type': 'application/json; charset=utf-8'}, rawPath: '/api/compare', body: JSON.stringify(experiment())};

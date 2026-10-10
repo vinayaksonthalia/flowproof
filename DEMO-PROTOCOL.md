@@ -18,8 +18,8 @@ Use this before entering data in the app. The app records a **self-reported obse
 
 ## Record the trials
 
-1. Film a short baseline clip showing the task, basin, final item and measured volume. Record the measured litres and duration immediately.
-2. Reset and film the intervention clip under the same conditions. Show the tap off during scrubbing, basin, final item and measured volume.
+1. Start FlowProof's baseline timer as the task begins, then stop it when the shared finish line is met. Film the task, basin, finished items, and measured volume. **After the task**, pour the captured water into the marked vessel. Empty each measured full vessel into a separate container or drain, **never back into the catch basin**, then tap **+**; enter the final partial amount. Show this separation in the demo so the same water cannot be counted twice. Use direct litre entry only if you already measured a total elsewhere.
+2. Reset the basin and film the intervention clip under the same conditions. Show the tap off during scrubbing, basin, finished items and vessel tally. Use FlowProof's second timer and tally.
 3. Note any splash or uncollected water. If either trial loses water, the app rejects the comparison; rerun rather than using its litres as reliable.
 4. Run the separate fixed-volume control: fill the same known-volume bottle at two different flow rates. Both fills should remain the same volume; only the time changes. Do not waste water solely for the control if the water can be used afterward.
 

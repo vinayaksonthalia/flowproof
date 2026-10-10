@@ -22,6 +22,23 @@ export function compareExperiment(input) {
     if (!trial || typeof trial !== 'object' || Array.isArray(trial)) { reasons.push(`Provide the ${name} trial.`); continue; }
     if (!positiveNumber(trial.litres)) reasons.push(`${name} water volume must be a positive finite number in litres.`);
     if (!positiveNumber(trial.durationSeconds)) reasons.push(`${name} duration must be a positive finite number in seconds.`);
+    if (trial.durationSource !== undefined && !['timer', 'manual'].includes(trial.durationSource)) reasons.push(`${name} duration source must be timer or manual.`);
+    if (trial.capture !== undefined) {
+      const capture = trial.capture;
+      if (!capture || typeof capture !== 'object' || Array.isArray(capture) || !['manual', 'vessel_tally'].includes(capture.method)) {
+        reasons.push(`${name} capture method must be manual or vessel tally.`);
+      } else if (capture.method === 'vessel_tally') {
+        const validCount = Number.isSafeInteger(capture.fullVessels) && capture.fullVessels >= 0;
+        const validRemainder = typeof capture.remainderLitres === 'number' && Number.isFinite(capture.remainderLitres) && capture.remainderLitres >= 0 && capture.remainderLitres < task?.vesselLitres;
+        if (!validCount) reasons.push(`${name} full vessel count must be a nonnegative whole number.`);
+        if (!validRemainder) reasons.push(`${name} remainder must be nonnegative and smaller than the measuring vessel capacity.`);
+        if (validCount && validRemainder && positiveNumber(task?.vesselLitres) && positiveNumber(trial.litres)) {
+          const tallyLitres = capture.fullVessels * task.vesselLitres + capture.remainderLitres;
+          // The tolerance only handles decimal serialization; it does not certify the vessel.
+          if (!positiveNumber(tallyLitres) || Math.abs(trial.litres - tallyLitres) > 0.005 + 1e-9) reasons.push(`${name} volume does not match the vessel tally. Check the full fills and remainder.`);
+        }
+      }
+    }
     if (input.experimentType === 'completed_task') {
       if (trial.completed !== true) reasons.push(`Confirm that ${name} met the shared completion standard.`);
       if (!Number.isSafeInteger(trial.unitsCompleted) || trial.unitsCompleted <= 0) reasons.push(`Provide the completed item count for ${name}.`);
@@ -48,6 +65,6 @@ export function compareExperiment(input) {
 
 /** Copy only the public experiment schema. Never persist arbitrary request metadata. */
 export function canonicalExperiment(input) {
-  const trial = value => ({litres: value.litres, durationSeconds: value.durationSeconds, spillage: value.spillage, ...(typeof value.completed === 'boolean' ? {completed: value.completed} : {}), ...(Number.isSafeInteger(value.unitsCompleted) ? {unitsCompleted: value.unitsCompleted} : {})});
+  const trial = value => ({litres: value.litres, durationSeconds: value.durationSeconds, ...(value.durationSource === 'timer' || value.durationSource === 'manual' ? {durationSource: value.durationSource} : {}), spillage: value.spillage, ...(typeof value.completed === 'boolean' ? {completed: value.completed} : {}), ...(Number.isSafeInteger(value.unitsCompleted) ? {unitsCompleted: value.unitsCompleted} : {}), ...(value.capture?.method === 'vessel_tally' ? {capture: {method: 'vessel_tally', fullVessels: value.capture.fullVessels, remainderLitres: value.capture.remainderLitres}} : value.capture?.method === 'manual' ? {capture: {method: 'manual'}} : {})});
   return {experimentType: input.experimentType, task: {name: input.task.name, unitsCount: input.task.unitsCount, completionCriterion: input.task.completionCriterion, vesselLitres: input.task.vesselLitres}, baseline: trial(input.baseline), intervention: trial(input.intervention), interventionName: input.interventionName};
 }

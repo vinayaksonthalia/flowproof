@@ -6,3 +6,4 @@ api/public/
 .env
 .env.*
 *.zip
+*.tsbuildinfo

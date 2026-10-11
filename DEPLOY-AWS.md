@@ -1,6 +1,9 @@
 # Deploy FlowProof from AWS CloudShell
 
-Upload `flowproof-cloudshell.zip` to CloudShell and deploy one stack. The resulting URL serves the app, API and receipts on the same origin. This guide was checked against the current [CloudShell tools](https://docs.aws.amazon.com/cloudshell/latest/userguide/vm-specs.html) and [SAM deployment documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/using-sam-cli-deploy.html). AWS deployment has not been run from this workspace.
+Upload `flowproof-cloudshell.zip` to CloudShell and deploy one stack. The resulting URL serves the app, API and receipts on the same origin. This guide was checked against the current [CloudShell tools](https://docs.aws.amazon.com/cloudshell/latest/userguide/vm-specs.html) and [SAM deployment documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/using-sam-cli-deploy.html). **Current Deployment Status:** The stack is **LIVE** and verified in AWS `ap-south-1` (Mumbai).
+- **Live Endpoint:** `https://4uoe20os9f.execute-api.ap-south-1.amazonaws.com`
+- **DynamoDB Table:** `flowproof-ReceiptsTable-1VCD4W16SRAFG` (Active, PAY_PER_REQUEST, 7-day TTL)
+- **Health Check:** `curl https://4uoe20os9f.execute-api.ap-south-1.amazonaws.com/api/health` -> `{"status":"ok","storage":"dynamodb"}`
 
 1. Sign in to your AWS account, select **Asia Pacific (Mumbai), ap-south-1**, and open **CloudShell** from the console toolbar. CloudShell uses your signed-in AWS identity. The identity must be allowed to create CloudFormation, Lambda, HTTP API Gateway, DynamoDB, IAM roles and SAM's S3 deployment artifacts.
 2. In CloudShell choose **Actions → Upload file** and select `flowproof-cloudshell.zip`.

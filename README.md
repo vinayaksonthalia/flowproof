@@ -87,6 +87,15 @@ npm --prefix api run prepare:web
 sam validate --lint --template-file api/template.yaml
 ```
 
+## Project Documentation & Hackathon Resources
+
+| Document | Purpose & Contents |
+| :--- | :--- |
+| **[DEMO-VIDEO.md](DEMO-VIDEO.md)** | Full 3-minute video walkthrough and presentation script for hackathon judges. |
+| **[DEMO-PROTOCOL.md](DEMO-PROTOCOL.md)** | Step-by-step physical measurement protocol for household routines and negative controls. |
+| **[DEPLOY-AWS.md](DEPLOY-AWS.md)** | Live AWS infrastructure specifications, SAM deployment steps, and live verification commands. |
+| **[QUALITY-GATES.md](QUALITY-GATES.md)** | Quality gates, deterministic invariants, zero-LLM boundaries, and automated test matrix. |
+
 ## Core Decisions & Invariants
 
 - **The Primary Formula**: `baseline total litres − changed-habit total litres`, formatted to 0.1 L for display while retaining exact inputs on the receipt.

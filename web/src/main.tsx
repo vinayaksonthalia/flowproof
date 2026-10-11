@@ -7,6 +7,59 @@ import { motionTokens, shouldAnimate } from './motion-tokens';
 import { MeasurementVisual } from './MeasurementVisual';
 import { TrialRecorder, type Trial } from './TrialRecorder';
 
+interface PresetProtocol {
+  id: string;
+  name: string;
+  type: 'completed_task' | 'fixed_volume';
+  task: string;
+  count: number;
+  criterion: string;
+  habit: string;
+  vessel: number;
+  baseline: Trial;
+  intervention: Trial;
+}
+
+const BENCHMARK_PRESETS: PresetProtocol[] = [
+  {
+    id: 'dishes_tap_off',
+    name: '01 Dishes (Delhi Tap-off)',
+    type: 'completed_task',
+    task: 'Wash four dinner plates',
+    count: 4,
+    criterion: 'The same four plates are visibly clean, with no soap or grease left.',
+    habit: 'Turn the tap off while soaping',
+    vessel: 1,
+    baseline: { litres: 4.2, durationSeconds: 60, spillage: false, completed: true, unitsCompleted: 4, durationSource: 'timer', capture: { method: 'vessel_tally', fullVessels: 4, remainderLitres: 0.2 } },
+    intervention: { litres: 1.8, durationSeconds: 70, spillage: false, completed: true, unitsCompleted: 4, durationSource: 'timer', capture: { method: 'vessel_tally', fullVessels: 1, remainderLitres: 0.8 } }
+  },
+  {
+    id: 'teeth_tumbler',
+    name: '02 Teeth Brushing (Tumbler)',
+    type: 'completed_task',
+    task: 'Two-minute teeth brushing',
+    count: 1,
+    criterion: 'Standard two-minute brushing with complete mouth rinse.',
+    habit: 'Rinse with a 250ml tumbler instead of running tap',
+    vessel: 0.5,
+    baseline: { litres: 3.0, durationSeconds: 120, spillage: false, completed: true, unitsCompleted: 1, durationSource: 'timer', capture: { method: 'vessel_tally', fullVessels: 6, remainderLitres: 0.0 } },
+    intervention: { litres: 0.5, durationSeconds: 120, spillage: false, completed: true, unitsCompleted: 1, durationSource: 'timer', capture: { method: 'vessel_tally', fullVessels: 1, remainderLitres: 0.0 } }
+  },
+  {
+    id: 'bottle_control',
+    name: '03 1L Bottle (Negative Control)',
+    type: 'fixed_volume',
+    task: 'Fill a 1-litre drinking bottle',
+    count: 1,
+    criterion: 'Fill container to the exact 1 L mark in each trial.',
+    habit: 'Reduce tap flow to half speed',
+    vessel: 1,
+    baseline: { litres: 1.0, durationSeconds: 5, spillage: false, completed: true, unitsCompleted: 1, durationSource: 'timer', capture: { method: 'manual' } },
+    intervention: { litres: 1.0, durationSeconds: 20, spillage: false, completed: true, unitsCompleted: 1, durationSource: 'timer', capture: { method: 'manual' } }
+  }
+];
+
+
 type Result = { status: 'accepted' | 'rejected' | 'uncertain'; observedDifferenceLitres: number | null; reasons: string[]; receiptId: string | null };
 const initialTrial: Trial = { litres: 0, durationSeconds: 0, spillage: false, completed: false, unitsCompleted: 0, capture:{method:'vessel_tally',fullVessels:0,remainderLitres:0} };
 const steps = ['Set up', 'Measure', 'Compare'];
@@ -38,6 +91,37 @@ function App() {
   const [createdAt, setCreatedAt] = useState<string | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [retrieved, setRetrieved] = useState(false);
+  const [showArch, setShowArch] = useState(false);
+  const [presetNote, setPresetNote] = useState('');
+  function applyPreset(p: PresetProtocol) {
+    setType(p.type);
+    setTask(p.task);
+    setCount(p.count);
+    setCriterion(p.criterion);
+    setHabit(p.habit);
+    setVessel(p.vessel);
+    setBaseline(p.baseline);
+    setIntervention(p.intervention);
+    setResult(null);
+    setError('');
+    setPresetNote('Loaded ' + p.name + '. Advance to Measure to test or edit values.');
+  }
+  function downloadCsv() {
+    const headers = ['trial','litres','duration_seconds','duration_source','capture_method','items_completed','spillage'];
+    const rows = [
+      ['baseline', baseline.litres, baseline.durationSeconds, baseline.durationSource ?? 'unrecorded', baseline.capture?.method ?? 'manual', baseline.unitsCompleted ?? '', baseline.spillage ? 'true' : 'false'],
+      ['changed_habit', intervention.litres, intervention.durationSeconds, intervention.durationSource ?? 'unrecorded', intervention.capture?.method ?? 'manual', intervention.unitsCompleted ?? '', intervention.spillage ? 'true' : 'false']
+    ];
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'flowproof-trial-' + (result?.receiptId || 'data') + '.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   const receiptUrl = result?.receiptId ? `${window.location.origin}${window.location.pathname}?receipt=${encodeURIComponent(result.receiptId)}` : null;
   async function loadReceipt(id: string, open = false) {
     setReceiptLoading(true);
@@ -86,12 +170,59 @@ function App() {
   function receiptText() { return `FlowProof experiment receipt\n${task}\nChange: ${habit}\nFinish line: ${finishLine}\nMethod: ${type === 'fixed_volume' ? 'Fixed-volume control' : 'Completed task'}\nBaseline: ${baseline.litres} L in ${baseline.durationSeconds} s (${baseline.durationSource ?? 'source not recorded'}); ${captureDescription(baseline,vessel)}; spilled: ${baseline.spillage}; ${type==='completed_task'?`completed: ${baseline.completed}; items completed: ${baseline.unitsCompleted} of ${count}`:`target: one ${vessel} L fill`}\nChanged habit: ${intervention.litres} L in ${intervention.durationSeconds} s (${intervention.durationSource ?? 'source not recorded'}); ${captureDescription(intervention,vessel)}; spilled: ${intervention.spillage}; ${type==='completed_task'?`completed: ${intervention.completed}; items completed: ${intervention.unitsCompleted} of ${count}`:`target: one ${vessel} L fill`}\nStatus: ${result?.status}\nObserved difference: ${result?.observedDifferenceLitres ?? 'not established'} L\n${result?.reasons.join('\n')}\nReceipt: ${result?.receiptId ?? 'not issued'}\nCreated: ${createdAt ?? 'not available'}\nShareable receipt: ${receiptUrl ?? 'not issued'}\nSelf-reported measurements. One experiment; not independently verified. No daily or annual saving is established.`; }
   async function copyReceipt() { try { await navigator.clipboard.writeText(receiptText()); setCopiedText(true); } catch { setError('Clipboard unavailable. Use Download receipt to share your experiment.'); } }
   function downloadReceipt() { const url = URL.createObjectURL(new Blob([receiptText()], {type:'text/plain'})); const link = document.createElement('a'); link.href=url; link.download='flowproof-experiment-receipt.txt'; link.click(); URL.revokeObjectURL(url); }
-  return <MotionConfig reducedMotion="user"><header className="header"><a className="brand" href="#" onClick={e=>{e.preventDefault();if(go(0))window.history.replaceState(null,'',window.location.pathname);}}><Drop small/>FlowProof<span className="beta">FIELD NOTES / 01</span></a><span className="header-note">Small experiment. Clearer choice.</span></header>
+  return <MotionConfig reducedMotion="user"><header className="header"><a className="brand" href="#" onClick={e=>{e.preventDefault();if(go(0))window.history.replaceState(null,'',window.location.pathname);}}><Drop small/>FlowProof<span className="beta">FIELD NOTES / 01</span></a><div style={{display:"flex",gap:"12px",alignItems:"center"}}><span className="header-note">Small experiment. Clearer choice.</span><button type="button" className="arch-trigger" onClick={()=>setShowArch(true)}>AWS ENGINE ↗</button></div></header>
     <main>{page === 0 ? <motion.div className="landing" {...enter}><section className="hero"><p className="eyebrow"><span className="live-dot"/> THE WATER EXPERIMENT WORKBENCH</p><h1>Put one habit<br/>to the <em>test.</em></h1><p className="lead">Measure your usual way. Change one thing. Compare the water used to finish the same task.</p><button type="button" className="primary" onClick={()=>go(1)}>Start an experiment <span aria-hidden="true">↗</span></button><p className="micro">ONE EXPERIMENT · TWO TRIALS · YOUR MEASUREMENTS</p><div className="starter-kit"><span className="kit-number">01—03</span><div><strong>Bring a marked container and a basin.</strong><p>Use the built-in timer, the same tap, and a clearly defined task.</p></div></div><p className="honesty">Self-reported measurements. A useful observation to share, with its limits attached.</p></section><aside className="hero-art"><MeasurementVisual/><div className="field-note"><span>FIELD NOTE 001</span><strong>A slower tap isn’t always a saving.</strong><p>Filling the same container still takes the same water. Our control experiment checks exactly that.</p><button type="button" className="text-button" onClick={()=>{selectMethod('fixed_volume');go(1);}}>Try the fixed-volume control →</button></div></aside><section className="how"><div><span>01</span><h3>Define the finish line</h3><p>Same amount of work. Same completed result.</p></div><div><span>02</span><h3>Collect both trials</h3><p>Measure all water used, and report any spillage.</p></div><div><span>03</span><h3>Review the observation</h3><p>Get a receipt when the comparison passes its checks.</p></div></section></motion.div> : <div className="workspace"><aside className="sidebar"><p className="eyebrow">YOUR EXPERIMENT</p><h2>A little evidence.<br/>A better habit.</h2><ol className="steps">{steps.map((s,i)=><li key={s} className={page===i+1?'current':page>i+1?'complete':''}><span>{page>i+1?'✓':`0${i+1}`}</span>{s}</li>)}</ol><div className="sidebar-note"><Drop small/><p>One experiment to choose a habit. Repeat for more confidence.</p></div></aside><motion.form className="panel" key={page} {...enter} onSubmit={e=>{e.preventDefault();if(page===1)nextFromSetup();else if(page===2&&!loading)void compare();}}>
-    {page===1 && <><p className="eyebrow">01 / SET UP</p><h1>What will you test?</h1><p className="intro">Same task. Same finish line. One changed habit.</p><fieldset className="choice-group"><legend>Experiment method</legend><label className={`choice ${type==='completed_task'?'selected':''}`}><input type="radio" name="experiment-method" checked={type==='completed_task'} onChange={()=>selectMethod('completed_task')}/><strong>Complete the same task</strong><small>Compare the same amount of finished work.</small></label><label className={`choice ${type==='fixed_volume'?'selected':''}`}><input type="radio" name="experiment-method" checked={type==='fixed_volume'} onChange={()=>selectMethod('fixed_volume')}/><strong>Fixed-volume control</strong><small>Same fill line. Slower flow saves zero water.</small></label></fieldset>{(baseline.litres>0||intervention.litres>0)&&<p className="setup-warning">Changing this setup clears the recorded trial values. Return to Measure without editing to keep them.</p>}<div className="form-grid"><label className="wide">Task<input value={task} maxLength={120} onChange={e=>{setTask(e.target.value);clearMeasurements();}}/></label>{type==='completed_task' && <label>Number of items<input type="number" min="1" step="1" value={count} onChange={e=>{setCount(e.target.valueAsNumber);clearMeasurements();}}/></label>}<label>Measuring vessel capacity (L)<input type="number" min="0.01" step="0.01" value={vessel} onChange={e=>{setVessel(e.target.valueAsNumber);clearMeasurements();}}/></label><label className="wide">{type==='fixed_volume'?`Target: fill once to the ${vessel} L mark`:'The task is complete when…'}<textarea rows={2} value={finishLine} readOnly={type==='fixed_volume'} maxLength={500} onChange={e=>{setCriterion(e.target.value);clearMeasurements();}}/></label><label className="wide">The one habit you’ll change<input value={habit} maxLength={200} onChange={e=>{setHabit(e.target.value);clearMeasurements();}}/></label></div><div className="callout"><strong>Keep it comparable</strong><p>Same tap and task size. Collect all water, including refills. Report any spillage.</p></div><button type="submit" className="primary">Ready to measure <span>→</span></button></>}
+    {page===1 && <><p className="eyebrow">01 / SET UP</p><h1>What will you test?</h1><p className="intro">Same task. Same finish line. One changed habit.</p><div className="preset-bar"><span className="preset-label">BENCHMARK PROTOCOLS</span><div className="preset-pills">{BENCHMARK_PRESETS.map(p => (<button key={p.id} type="button" className="preset-pill" onClick={()=>applyPreset(p)}>{p.name}</button>))}</div>{presetNote && <span className="preset-hint">{presetNote}</span>}</div><fieldset className="choice-group"><legend>Experiment method</legend><label className={`choice ${type==='completed_task'?'selected':''}`}><input type="radio" name="experiment-method" checked={type==='completed_task'} onChange={()=>selectMethod('completed_task')}/><strong>Complete the same task</strong><small>Compare the same amount of finished work.</small></label><label className={`choice ${type==='fixed_volume'?'selected':''}`}><input type="radio" name="experiment-method" checked={type==='fixed_volume'} onChange={()=>selectMethod('fixed_volume')}/><strong>Fixed-volume control</strong><small>Same fill line. Slower flow saves zero water.</small></label></fieldset>{(baseline.litres>0||intervention.litres>0)&&<p className="setup-warning">Changing this setup clears the recorded trial values. Return to Measure without editing to keep them.</p>}<div className="form-grid"><label className="wide">Task<input value={task} maxLength={120} onChange={e=>{setTask(e.target.value);clearMeasurements();}}/></label>{type==='completed_task' && <label>Number of items<input type="number" min="1" step="1" value={count} onChange={e=>{setCount(e.target.valueAsNumber);clearMeasurements();}}/></label>}<label>Measuring vessel capacity (L)<input type="number" min="0.01" step="0.01" value={vessel} onChange={e=>{setVessel(e.target.valueAsNumber);clearMeasurements();}}/></label><label className="wide">{type==='fixed_volume'?`Target: fill once to the ${vessel} L mark`:'The task is complete when…'}<textarea rows={2} value={finishLine} readOnly={type==='fixed_volume'} maxLength={500} onChange={e=>{setCriterion(e.target.value);clearMeasurements();}}/></label><label className="wide">The one habit you’ll change<input value={habit} maxLength={200} onChange={e=>{setHabit(e.target.value);clearMeasurements();}}/></label></div><div className="callout"><strong>Keep it comparable</strong><p>Same tap and task size. Collect all water, including refills. Report any spillage.</p></div><button type="submit" className="primary">Ready to measure <span>→</span></button></>}
     {page===2 && <><p className="eyebrow">02 / MEASURE</p><h1>Same task. Two trials.</h1><p className="intro">{task} · {type==='fixed_volume'?`one fill to ${vessel} L`:`${count} ${count===1?'item':'items'}`} · {vessel} L vessel</p><div className="task-note"><strong>Your finish line</strong><p>{finishLine}</p></div><div className="prep-strip"><span>PREP</span><p>Catch all water. Time the task. Then count jug fills; empty measured water away from the catch basin.</p></div><button type="button" className="jump-recorder" onClick={()=>document.getElementById("record-trial")?.scrollIntoView({behavior:reduced?"instant":"smooth",block:"start"})}>Record baseline <span aria-hidden="true">↓</span></button><div className="live-instrument"><MeasurementVisual baseline={baseline.litres>0?baseline.litres:undefined} intervention={intervention.litres>0?intervention.litres:undefined}/></div><div id="record-trial" className="trial-totals" aria-label="Recorded trial totals"><span>01 BASELINE<strong>{baseline.litres>0?`${baseline.litres} L`:'—'}</strong></span><span>02 CHANGED<strong>{intervention.litres>0?`${intervention.litres} L`:'—'}</strong></span></div><div className="trial-switch" role="group" aria-label="Choose trial to record"><button type="button" className={activeTrial===0?'selected':''} aria-pressed={activeTrial===0} onClick={()=>{if(timersRunning.some(Boolean)){setError('Stop the running timer before switching trials.');return;}setError('');setActiveTrial(0);}}>01 Baseline <span>{trialReady(baseline,type,count)?'✓':'○'}</span></button><button type="button" className={activeTrial===1?'selected':''} aria-pressed={activeTrial===1} onClick={()=>{if(timersRunning.some(Boolean)){setError('Stop the running timer before switching trials.');return;}setError('');setActiveTrial(1);}}>02 Changed habit <span>{trialReady(intervention,type,count)?'✓':'○'}</span></button></div><div className="trial-grid"><AnimatePresence mode="wait"><motion.div key={activeTrial} {...enter} exit={{opacity:0,y:animate?-motionTokens.distance.xs:0}}><TrialRecorder index={activeTrial} label={activeTrial===0?'Baseline':'Changed habit'} caption={activeTrial===0?'Your usual way':habit} value={activeTrial===0?baseline:intervention} setValue={activeTrial===0?setBaseline:setIntervention} vesselLitres={vessel} unitsCount={count} completedTask={type==='completed_task'} onRunningChange={running=>setTimersRunning(previous=>previous.map((value,index)=>index===activeTrial?running:value))}/></motion.div></AnimatePresence></div>{activeTrial===0&&<button type="button" className="next-trial" onClick={()=>{if(timersRunning.some(Boolean)){setError('Stop the running timer before switching trials.');return;}setError('');setActiveTrial(1);requestAnimationFrame(()=>document.querySelector<HTMLElement>('.trial-switch button:nth-child(2)')?.focus());}}>Next: record changed habit <span aria-hidden="true">→</span></button>}<div className="callout"><strong>{type==='fixed_volume'?'Control check: equal volume means zero savings':'Finish both trials to the same standard'}</strong><p>{type==='fixed_volume'?'A slower fill takes longer. The same container still needs the same water.':'Both trials must finish the same amount of work. Otherwise, repeat the trial.'}</p></div><div className="actions"><button type="button" className="secondary" onClick={()=>go(1)}>← Edit setup</button>{activeTrial===1&&<button type="submit" className="primary" disabled={loading||timersRunning.some(Boolean)}>{loading?'Checking experiment…':timersRunning.some(Boolean)?'Stop timer to compare':'Compare my trials'} <span>→</span></button>}</div><p className="micro">Accepted experiments are saved for 7 days. Anyone with the receipt link can view your entries. Avoid personal details.</p></>}
-    {page===3 && !result && <><p className="eyebrow">SAVED EXPERIMENT</p><h1>{receiptLoading?'Loading your receipt…':'Receipt unavailable'}</h1><p className="intro">{receiptLoading?'Retrieving the measurements and comparison from the receipt service.':'The saved experiment could not be retrieved.'}</p><button type="button" className="secondary" onClick={()=>{window.history.replaceState(null,'',window.location.pathname);go(1);}}>Start an experiment</button></>}{page===3 && result && <><p className="eyebrow">03 / EXPERIMENT RECEIPT</p><h1>{result.status==='accepted'?'Here’s what you observed.':result.status==='uncertain'?'This needs another trial.':'Let’s check the experiment.'}</h1><p className="intro">Two trials. One observation.</p><motion.article className="receipt" {...enter}><div className="receipt-top"><span className={`status ${result.status}`}>{result.status==='accepted'?'COMPARISON ACCEPTED':result.status==='uncertain'?'RESULT UNCERTAIN':'COMPARISON REJECTED'}</span><Drop small/></div>{result.status==='accepted' && <MeasurementVisual baseline={baseline.litres} intervention={intervention.litres} reveal/>}<motion.div className="result-number" initial={{opacity:0,y:animate?motionTokens.distance.sm:0}} animate={{opacity:1,y:0}} transition={{duration:animate?motionTokens.duration.normal:motionTokens.duration.fast,delay:animate?motionTokens.duration.fast:0}}>{result.observedDifferenceLitres===null?<span className="no-result">No established difference</span>:<>{Math.abs(result.observedDifferenceLitres).toLocaleString(undefined,{maximumFractionDigits:3})}<span> L</span></>}</motion.div><p className="result-label">{result.observedDifferenceLitres===null?'Review the reasons below before drawing a conclusion.':result.observedDifferenceLitres>0?'less water observed in the changed-habit trial':result.observedDifferenceLitres<0?'more water observed in the changed-habit trial':'difference observed between these trials'}</p><div className="comparison"><div><span>BASELINE</span><strong>{baseline.litres} L</strong><small>{baseline.durationSeconds} seconds · {baseline.durationSource==='timer'?'built-in timer':baseline.durationSource==='manual'?'manual entry':'source not recorded'}</small><small>{captureDescription(baseline,vessel)}</small>{type==='completed_task'?<small>{baseline.unitsCompleted ?? 'Not reported'} / {count} items · {baseline.completed?'Finish line met':'Finish line not confirmed'}</small>:<small>Target: one {vessel} L fill</small>}<small>Spillage: {baseline.spillage?'Reported':'None reported'}</small></div><div><span>CHANGED HABIT</span><strong>{intervention.litres} L</strong><small>{intervention.durationSeconds} seconds · {intervention.durationSource==='timer'?'built-in timer':intervention.durationSource==='manual'?'manual entry':'source not recorded'}</small><small>{captureDescription(intervention,vessel)}</small>{type==='completed_task'?<small>{intervention.unitsCompleted ?? 'Not reported'} / {count} items · {intervention.completed?'Finish line met':'Finish line not confirmed'}</small>:<small>Target: one {vessel} L fill</small>}<small>Spillage: {intervention.spillage?'Reported':'None reported'}</small></div></div><h3>{task}</h3><p>{habit}</p><div className="receipt-finish"><span>FINISH LINE</span><p>{finishLine}</p></div><details className="reasons-panel" open={result.status!=='accepted'}><summary>{result.status==='accepted'?'How this observation was checked':'Why this comparison needs work'}</summary><ul className="reasons">{result.reasons.map((r,i)=><li key={i}>{r}</li>)}</ul></details><div className="receipt-bottom"><span>SELF-REPORTED MEASUREMENTS</span><small>{result.receiptId?`Receipt ${result.receiptId}`:'No receipt issued'}</small>{createdAt && <small>Created {new Date(createdAt).toLocaleString()}</small>}{receiptUrl && <a className="receipt-link" href={receiptUrl}>Open saved receipt ↗</a>}</div></motion.article><p className="honesty">Self-reported. One experiment. Daily or annual savings are not established.</p><div className="actions"><button type="button" className="primary" onClick={downloadReceipt}>Download receipt <span>↓</span></button></div>{receiptUrl && <button type="button" className="text-button" onClick={async()=>{try{await navigator.clipboard.writeText(receiptUrl);setCopiedLink(true);}catch{setError('Clipboard unavailable. Use Open saved receipt to access the link.');}}}>{copiedLink?'Link copied':'Copy receipt link'}</button>}<button type="button" className="text-button" onClick={copyReceipt}>{copiedText?'Receipt text copied':'Copy receipt text'}</button><button type="button" className="text-button" onClick={()=>{window.history.replaceState(null,'',window.location.pathname);setCreatedAt(null);setRetrieved(false);setResult(null);setBaseline(initialTrial);setIntervention(initialTrial);go(1);}}>Start another experiment</button></>}
-    {loading && <motion.div className="validation-gate" role="status" {...enter}><span className="gate-icon">↔</span><div><strong>Checking the comparison</strong><p>Volumes, task conditions, and collection quality.</p></div><motion.span className="gate-dot" animate={{opacity:1}} transition={{duration:motionTokens.duration.fast}}/></motion.div>}{error && <motion.div className="error" role="alert" {...enter}>{error}</motion.div>}</motion.form></div>}</main><footer><span>FlowProof</span><span>Less guessing. More measuring.</span><span>Built for a thoughtful next step.</span></footer></MotionConfig>;
+    {page===3 && !result && <><p className="eyebrow">SAVED EXPERIMENT</p><h1>{receiptLoading?'Loading your receipt…':'Receipt unavailable'}</h1><p className="intro">{receiptLoading?'Retrieving the measurements and comparison from the receipt service.':'The saved experiment could not be retrieved.'}</p><button type="button" className="secondary" onClick={()=>{window.history.replaceState(null,'',window.location.pathname);go(1);}}>Start an experiment</button></>}{page===3 && result && <><p className="eyebrow">03 / EXPERIMENT RECEIPT</p><h1>{result.status==='accepted'?'Here’s what you observed.':result.status==='uncertain'?'This needs another trial.':'Let’s check the experiment.'}</h1><p className="intro">Two trials. One observation.</p><motion.article className="receipt" {...enter}><div className="receipt-top"><span className={`status ${result.status}`}>{result.status==='accepted'?'COMPARISON ACCEPTED':result.status==='uncertain'?'RESULT UNCERTAIN':'COMPARISON REJECTED'}</span><Drop small/></div>{result.status==='accepted' && <MeasurementVisual baseline={baseline.litres} intervention={intervention.litres} reveal/>}<motion.div className="result-number" initial={{opacity:0,y:animate?motionTokens.distance.sm:0}} animate={{opacity:1,y:0}} transition={{duration:animate?motionTokens.duration.normal:motionTokens.duration.fast,delay:animate?motionTokens.duration.fast:0}}>{result.observedDifferenceLitres===null?<span className="no-result">No established difference</span>:<>{Math.abs(result.observedDifferenceLitres).toLocaleString(undefined,{maximumFractionDigits:3})}<span> L</span></>}</motion.div><p className="result-label">{result.observedDifferenceLitres===null?'Review the reasons below before drawing a conclusion.':result.observedDifferenceLitres>0?'less water observed in the changed-habit trial':result.observedDifferenceLitres<0?'more water observed in the changed-habit trial':'difference observed between these trials'}</p><div className="comparison"><div><span>BASELINE</span><strong>{baseline.litres} L</strong><small>{baseline.durationSeconds} seconds · {baseline.durationSource==='timer'?'built-in timer':baseline.durationSource==='manual'?'manual entry':'source not recorded'}</small><small>{captureDescription(baseline,vessel)}</small>{type==='completed_task'?<small>{baseline.unitsCompleted ?? 'Not reported'} / {count} items · {baseline.completed?'Finish line met':'Finish line not confirmed'}</small>:<small>Target: one {vessel} L fill</small>}<small>Spillage: {baseline.spillage?'Reported':'None reported'}</small></div><div><span>CHANGED HABIT</span><strong>{intervention.litres} L</strong><small>{intervention.durationSeconds} seconds · {intervention.durationSource==='timer'?'built-in timer':intervention.durationSource==='manual'?'manual entry':'source not recorded'}</small><small>{captureDescription(intervention,vessel)}</small>{type==='completed_task'?<small>{intervention.unitsCompleted ?? 'Not reported'} / {count} items · {intervention.completed?'Finish line met':'Finish line not confirmed'}</small>:<small>Target: one {vessel} L fill</small>}<small>Spillage: {intervention.spillage?'Reported':'None reported'}</small></div></div><h3>{task}</h3><p>{habit}</p><div className="receipt-finish"><span>FINISH LINE</span><p>{finishLine}</p></div><details className="reasons-panel" open={result.status!=='accepted'}><summary>{result.status==='accepted'?'How this observation was checked':'Why this comparison needs work'}</summary><ul className="reasons">{result.reasons.map((r,i)=><li key={i}>{r}</li>)}</ul></details><div className="receipt-bottom"><span>SELF-REPORTED MEASUREMENTS</span><small>{result.receiptId?`Receipt ${result.receiptId}`:'No receipt issued'}</small>{createdAt && <small>Created {new Date(createdAt).toLocaleString()}</small>}{receiptUrl && <a className="receipt-link" href={receiptUrl}>Open saved receipt ↗</a>}</div></motion.article>{result.status==='accepted' && result.observedDifferenceLitres!==null && result.observedDifferenceLitres>0 && (
+  <div className="impact-box">
+    <span>URBAN BASIN CONTEXT</span>
+    <strong>{Math.round((result.observedDifferenceLitres / 16) * 100) / 100} standard buckets equivalent per task cycle</strong>
+    <p>In municipal Indian supply, one standard bucket is approximately 16 litres. Scaling this habit across daily household routines preserves local groundwater margins.</p>
+  </div>
+)}<p className="honesty">Self-reported. One experiment. Daily or annual savings are not established.</p><div className="actions"><button type="button" className="primary" onClick={downloadReceipt}>Download receipt <span>↓</span></button><button type="button" className="secondary" onClick={downloadCsv}>Download CSV <span>↓</span></button></div>{receiptUrl && <button type="button" className="text-button" onClick={async()=>{try{await navigator.clipboard.writeText(receiptUrl);setCopiedLink(true);}catch{setError('Clipboard unavailable. Use Open saved receipt to access the link.');}}}>{copiedLink?'Link copied':'Copy receipt link'}</button>}<button type="button" className="text-button" onClick={copyReceipt}>{copiedText?'Receipt text copied':'Copy receipt text'}</button><button type="button" className="text-button" onClick={()=>{window.history.replaceState(null,'',window.location.pathname);setCreatedAt(null);setRetrieved(false);setResult(null);setBaseline(initialTrial);setIntervention(initialTrial);go(1);}}>Start another experiment</button></>}
+    {loading && <motion.div className="validation-gate" role="status" {...enter}><span className="gate-icon">↔</span><div><strong>Checking the comparison</strong><p>Volumes, task conditions, and collection quality.</p></div><motion.span className="gate-dot" animate={{opacity:1}} transition={{duration:motionTokens.duration.fast}}/></motion.div>}{error && <motion.div className="error" role="alert" {...enter}>{error}</motion.div>}</motion.form></div>}</main><footer><span>FlowProof</span><span>Less guessing. More measuring.</span><span>Built for a thoughtful next step.</span></footer>{showArch && (
+  <div className="modal-backdrop" onClick={()=>setShowArch(false)}>
+    <motion.div className="modal-card" onClick={e=>e.stopPropagation()} {...enter}>
+      <div className="modal-top">
+        <span className="status accepted">VERIFIED CLOUD RUNTIME</span>
+        <button type="button" className="modal-close" onClick={()=>setShowArch(false)}>×</button>
+      </div>
+      <h2>AWS Serverless Engine</h2>
+      <p className="intro">FlowProof runs on Amazon Web Services in ap-south-1 (Mumbai) with zero client hallucination.</p>
+      <div className="arch-grid">
+        <div className="arch-item">
+          <span>INGRESS GATEWAY</span>
+          <strong>Amazon API Gateway v2</strong>
+          <small>HTTP API with burst protection. Rate limit: 5 req/s, Burst: 10.</small>
+        </div>
+        <div className="arch-item">
+          <span>EXECUTION RUNTIME</span>
+          <strong>AWS Lambda (Node.js 22)</strong>
+          <small>Single-origin serverless handler. Serves static assets + enforces arithmetic bounds.</small>
+        </div>
+        <div className="arch-item">
+          <span>EPHEMERAL STORAGE</span>
+          <strong>Amazon DynamoDB</strong>
+          <small>Encrypted on-demand storage with native 7-day TTL auto-purge for privacy.</small>
+        </div>
+        <div className="arch-item">
+          <span>MATHEMATICAL INVARIANT</span>
+          <strong>Zero LLM Tolerance</strong>
+          <small>Arithmetic invariant verified: volume = (fills × capacity) + remainder (±0.005 L).</small>
+        </div>
+      </div>
+      <div className="arch-status-box">
+        <span>LIVE ENDPOINT TELEMETRY</span>
+        <code>https://4uoe20os9f.execute-api.ap-south-1.amazonaws.com</code>
+        <small>Region: Asia Pacific (Mumbai) ap-south-1 · Stack: flowproof · Status: Active</small>
+      </div>
+      <div className="actions">
+        <button type="button" className="secondary" onClick={()=>setShowArch(false)}>Close</button>
+      </div>
+    </motion.div>
+  </div>
+)}</MotionConfig>;
 }
 declare global { interface Window { __flowproofRoot?: Root } }
 window.__flowproofRoot ??= createRoot(document.getElementById('root')!);

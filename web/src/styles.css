@@ -11,3 +11,37 @@
 .steps li{color:#5c6c60}.how span{color:#596d3d}.trial legend span{color:#60734c}.measurement-visual figcaption{color:#475c4e}.sidebar-note p,.honesty,.micro{color:#53665b}
 
 textarea[readonly]{background:#eeefe3;color:#415c48;cursor:default}.receipt-finish{border-top:1px solid var(--line);padding-top:17px;margin-top:20px}.receipt-finish>span{font:9px ui-monospace,monospace;letter-spacing:1.2px;color:var(--muted)}.receipt-finish p{font-size:12px;margin:7px 0 0;line-height:1.65}.comparison small{line-height:1.6}
+
+/* Benchmark Protocol Presets */
+.preset-bar{margin:0 0 24px;padding:14px 16px;background:#edf0e4;border-radius:4px;border-left:2px solid var(--green)}
+.preset-label{display:block;font:9px ui-monospace,monospace;letter-spacing:1.1px;color:var(--amber);margin-bottom:8px}
+.preset-pills{display:flex;flex-wrap:wrap;gap:8px}
+.preset-pill{background:#fbfbf6;border:1px solid #cbd4c4;border-radius:3px;padding:6px 12px;font:11px 'DM Sans',sans-serif;font-weight:600;color:var(--green);transition:all .15s ease}
+.preset-pill:hover{background:#fff;border-color:var(--green)}
+.preset-hint{display:block;font:10px 'DM Sans',sans-serif;color:var(--muted);margin-top:8px}
+
+/* AWS Architecture Trigger */
+.arch-trigger{border:1px solid #cad4bf;background:transparent;padding:6px 12px;font:10px ui-monospace,monospace;letter-spacing:.8px;color:var(--green);border-radius:3px;cursor:pointer;transition:background .15s ease}
+.arch-trigger:hover{background:#edf0e4}
+
+/* Editorial Architecture Verification Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(29,59,50,.55);backdrop-filter:blur(2px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-card{background:#fffef9;border:1px solid var(--line);border-top:3px solid var(--green);border-radius:4px;max-width:580px;width:100%;padding:28px;box-shadow:0 12px 32px rgba(22,63,53,.2)}
+.modal-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.modal-close{background:transparent;border:0;font-size:24px;line-height:1;color:var(--muted);cursor:pointer}
+.modal-card h2{font-family:Georgia,serif;font-size:26px;font-weight:400;margin:0 0 6px}
+.arch-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+.arch-item{background:#f7f7ee;border:1px solid var(--line);border-radius:3px;padding:12px}
+.arch-item span{display:block;font:8px ui-monospace,monospace;letter-spacing:1px;color:var(--muted)}
+.arch-item strong{display:block;font-size:13px;color:var(--green);margin:4px 0 2px}
+.arch-item small{display:block;font-size:10px;color:var(--muted);line-height:1.4}
+.arch-status-box{background:#e9eadf;border:1px solid #cbd1c0;border-radius:3px;padding:12px;margin-bottom:18px}
+.arch-status-box span{display:block;font:8px ui-monospace,monospace;letter-spacing:1px;color:var(--amber)}
+.arch-status-box code{display:block;font:11px ui-monospace,monospace;color:var(--green);word-break:break-all;margin:4px 0}
+.arch-status-box small{display:block;font-size:10px;color:var(--muted)}
+
+/* Impact Box on Receipt */
+.impact-box{background:#f4f5ec;border-left:2px solid var(--green);padding:14px 16px;border-radius:3px;margin:18px 0 0}
+.impact-box span{display:block;font:9px ui-monospace,monospace;letter-spacing:1.1px;color:var(--amber);margin-bottom:4px}
+.impact-box strong{display:block;font-size:14px;color:var(--green);margin-bottom:3px}
+.impact-box p{margin:0;font-size:11px;color:var(--muted);line-height:1.5}
